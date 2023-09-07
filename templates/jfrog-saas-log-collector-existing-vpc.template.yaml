@@ -292,7 +292,7 @@ Parameters:
     ConstraintDescription:
       The S3 bucket name can include numbers, lowercase letters,
       and hyphens (-), but it cannot start or end with a hyphen.
-    Default: aws-quickstart
+    Default: aws-ia-us-east-1
     Type: String
   QsS3KeyPrefix:
     Description:
@@ -307,7 +307,7 @@ Parameters:
       hyphens (-), underscores (_), periods (.), asterisks (*), single quotes ('),
       open parenthesis ((), close parenthesis ()), and forward slashes (/). End the
       prefix with a forward slash.
-    Default: quickstart-jfrog-artifactory/
+    Default: cfn-ps-jfrog-artifactory/
   QsS3BucketRegion:
     Default: "us-east-1"
     Description: AWS Region where the S3 bucket (QSS3BucketName) is hosted. Keep
@@ -367,7 +367,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: !Sub
-        - https://${S3Bucket}.s3.${S3Region}.${AWS::URLSuffix}/${QsS3KeyPrefix}submodules/quickstart-linux-bastion/templates/linux-bastion.template
+        - https://${S3Bucket}.s3.${S3Region}.${AWS::URLSuffix}/${QsS3KeyPrefix}submodules/cfn-ps-linux-bastion/templates/linux-bastion-entrypoint-existing-vpc.template.yaml
         - S3Bucket:
             !If [
               UsingDefaultBucket,
@@ -386,7 +386,7 @@ Resources:
         PublicSubnet2ID: !Ref PublicSubnetId
         KeyPairName: !Ref KeyPairName
         QSS3BucketName: !Ref QsS3BucketName
-        QSS3KeyPrefix: !Sub "${QsS3KeyPrefix}submodules/quickstart-linux-bastion/"
+        QSS3KeyPrefix: !Sub "${QsS3KeyPrefix}submodules/cfn-ps-linux-bastion/"
         QSS3BucketRegion: !Ref QsS3BucketRegion
         RemoteAccessCIDR: !Ref RemoteAccessCidr
         BastionInstanceType: !Ref BastionInstanceType
