@@ -1,5 +1,5 @@
 project:
-  name: quickstart-jfrog-saas-log-collector
+  name: cfn-ps-jfrog-saas-log-collector
   owner: quickstart-eng@amazon.com
 #  s3_object_acl: private
 #  s3_regional_buckets: True
