@@ -1,0 +1,376 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "JFrog SaaS log collector: Deploys the EC2 instances (qs-1t6cde8ln)"
+Metadata:
+  cfn-lint:
+    config:
+      ignore_checks:
+        - W9006
+        - W9002
+        - W9003
+        - W9004
+        - E9101
+      ignore_reasons:
+        - E9101: "'master' is part of the product naming conventions for now"
+Parameters:
+  KeyPairName:
+    Description: Name of the key pair you created in your preferred Region. Key pairs allow you to connect securely to your instance after it launches.
+    Type: AWS::EC2::KeyPair::KeyName
+  VpcId:
+    Description: ID of your existing VPC (e.g., vpc-0343606e).
+    Type: "AWS::EC2::VPC::Id"
+  VpcCidr:
+    Description: CIDR block for the VPC.
+    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/(1[6-9]|2[0-8]))$
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+    Default: 10.0.0.0/16
+    Type: String
+  PrivateSubnetId:
+    Description: ID of the private subnet in Availability Zone 1 of your existing VPC (e.g., subnet-a0246dcd).
+    Type: "AWS::EC2::Subnet::Id"
+#  PublicSubnetId:
+#    Description: ID of the public subnet in of your existing VPC (e.g., subnet-a0246dcd).
+#    Type: "AWS::EC2::Subnet::Id"
+#  RemoteAccessCidr:
+#    Description:
+#      Remote CIDR range that allows you to connect to the bastion instance by using SSH.
+#      We recommend that you set this value to a trusted IP range.
+#      For example, you might want to grant specific ranges inside your corporate network SSH access.
+#    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
+#    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/x
+#    Type: String
+  VolumeSize:
+    Description:
+      Size in gigabytes of the available storage (minimum 10GB). The Partner Solution creates Amazon Elastic Block Store (Amazon EBS) volumes of this size.
+    Default: 50
+    Type: Number
+  InstanceType:
+    Type: String
+  JpdUrl:
+    Type: String
+  JpdUserName:
+    Type: String
+  JpdAdminTokenSecretName:
+    Type: String
+  SplunkHECHost:
+    Type: String
+  SplunkHECPort:
+    Type: String
+  SplunkHECTokenSecretName:
+    Type: String
+  SplunkHECSSLInsecure:
+    Type: String
+  QsS3Uri:
+    Type: String
+  QsS3BucketName:
+    Type: String
+  QsS3KeyPrefix:
+    Type: String
+
+Mappings:
+  AWSAMIRegionMap:
+    # To populate additional mappings use following link
+    # https://raw.githubusercontent.com/aws-quickstart/quickstart-linux-bastion/master/templates/linux-bastion.template
+    # link from centos: https://www.centos.org/download/aws-images/
+    ap-northeast-1:
+      CentOS7HVM: "ami-0ddea5e0f69c193a4"
+    ap-northeast-2:
+      CentOS7HVM: "ami-0e4214f08b51e23cc"
+    ap-south-1:
+      CentOS7HVM: "ami-0ffc7af9c06de0077"
+    ap-southeast-1:
+      CentOS7HVM: "ami-0adfdaea54d40922b"
+    ap-southeast-2:
+      CentOS7HVM: "ami-03d56f451ca110e99"
+    ca-central-1:
+      CentOS7HVM: "ami-0a7c5b189b6460115"
+    eu-central-1:
+      CentOS7HVM: "ami-08b6d44b4f6f7b279"
+    me-south-1:
+      CentOS7HVM: "ami-0ac17dcdd6f6f4eb6"
+    ap-east-1:
+      CentOS7HVM: "ami-09611bd6fa5dd0e3d"
+    eu-north-1:
+      CentOS7HVM: "ami-0358414bac2039369"
+    eu-south-1:
+      CentOS7HVM: "ami-0fe3899b62205176a"
+    eu-west-1:
+      CentOS7HVM: "ami-04f5641b0d178a27a"
+    eu-west-2:
+      CentOS7HVM: "ami-0b22fcaf3564fb0c9"
+    eu-west-3:
+      CentOS7HVM: "ami-072ec828dae86abe5"
+    sa-east-1:
+      CentOS7HVM: "ami-02334c45dd95ca1fc"
+    us-east-1:
+      CentOS7HVM: "ami-00e87074e52e6c9f9"
+    us-east-2:
+      CentOS7HVM: "ami-00f8e2c955f7ffa9b"
+    us-west-1:
+      CentOS7HVM: "ami-08d2d8b00f270d03b"
+    us-west-2:
+      CentOS7HVM: "ami-0686851c4e7b1a8e1"
+    cn-north-1:
+      CentOS7HVM: "ami-0e02aaefeb74c3373"
+    cn-northwest-1:
+      CentOS7HVM: "ami-07183a7702633260b"
+    us-gov-east-1:
+      CentOS7HVM: "ami-00e30c71"
+    us-gov-west-1:
+      CentOS7HVM: "ami-bbba86da"
+
+Resources:
+  SaasLogCollectorBastionSg:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      Tags:
+        - Key: Name
+          Value: jfrog-saas-log-collector
+      GroupDescription: Security Group for bastion to SaaS log collector.
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref VpcCidr
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+  SaasLogCollectorEc2Sg:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      Tags:
+        - Key: Name
+          Value: jfrog-saas-log-collector
+      GroupDescription: Security Group for EC2 instances (also permits access using SSH from the bastion host).
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref VpcCidr
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+
+  SaasLogCollectorHostRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - EIAMPolicyWildcardResource
+            - EIAMPolicyActionWildcard
+          ignore_reasons:
+            EIAMPolicyWildcardResource: EC2 ec2:Describe* API actions do not support resource-level permission. Autoscaling has instance names changing, so needs to be *
+            EIAMPolicyActionWildcard: EC2 ec2:Describe* API actions do not support resource-level permission.
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+              - "sts:AssumeRole"
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Effect: Allow
+        Version: 2012-10-17
+      ManagedPolicyArns:
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonEC2RoleforSSM"
+      Policies:
+        - PolicyName: "JFrogAMI-policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action: "ec2:Describe*"
+                Resource: "*"
+              - Effect: "Allow"
+                Action: "ec2:AttachVolume"
+                Resource: "*"
+              - Effect: "Allow"
+                Action: "ec2:DetachVolume"
+                Resource: "*"
+              - Effect: "Allow"
+                Action:
+                  - "s3:GetObject"
+                  - "s3:ListObject"
+                  - "s3:ListBucket"
+                Resource: "*"
+        - PolicyName: "CloudWatch-policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                  - "logs:DescribeLogStreams"
+                Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:*:*"
+              - Effect: "Allow"
+                Action:
+                  - "s3:GetObject"
+                Resource: "*"
+        - PolicyName: "SecretsMaanger-policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "secretsmanager:GetSecretValue"
+                Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:*"
+  SaasLogCollectorHostProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Ref SaasLogCollectorHostRole
+      Roles:
+        - !Ref SaasLogCollectorHostRole
+      Path: /
+  SaasLogCollectorInstacne:
+    Type: 'AWS::EC2::Instance'
+    Metadata:
+      AWS::CloudFormation::Authentication:
+        S3AccessCreds:
+          type: S3
+          roleName:
+            - !Ref SaasLogCollectorHostRole
+          buckets:
+            - !Ref QsS3BucketName
+      AWS::CloudFormation::Init:
+        configSets:
+          jfrog_saas_log_collector_install:
+            - "config-cloudwatch"
+        config-cloudwatch:
+          files:
+            /root/cloudwatch.conf:
+              content: |
+                [general]
+                state_file = /var/awslogs/state/agent-state
+
+                [/var/log/messages]
+                file = /var/log/messages
+                log_group_name = /jfrog-saas-log-collector/instances/{instance_id}
+                log_stream_name = /var/log/messages/
+                datetime_format = %b %d %H:%M:%S
+
+                [/opt/jfrog/jfrog_saas_log_collector/jfrog_saas_log_collector_fluentd.log]
+                file = /var/log/messages
+                log_group_name = /jfrog-saas-log-collector/instances/{instance_id}
+                log_stream_name = /opt/jfrog/jfrog_saas_log_collector/jfrog_saas_log_collector_fluentd.log
+                datetime_format = %b %d %H:%M:%S
+
+                [/opt/jfrog/jfrog_saas_log_collector/jfrog-saas-collector.log]
+                file = /var/log/messages
+                log_group_name = /jfrog-saas-log-collector/instances/{instance_id}
+                log_stream_name = /opt/jfrog/jfrog_saas_log_collector/jfrog-saas-collector.log
+                datetime_format = %b %d %H:%M:%S
+              mode: "0400"
+    Properties:
+      ImageId: !FindInMap
+        - AWSAMIRegionMap
+        - !Ref AWS::Region
+        - 'CentOS7HVM'
+      IamInstanceProfile: !Ref SaasLogCollectorHostProfile
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyPairName
+      SubnetId: !Ref PrivateSubnetId
+      SecurityGroupIds:
+        - Ref: SaasLogCollectorEc2Sg
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: !Ref VolumeSize
+      Tags:
+        - Key: "Name"
+          Value: "JFrog SAAS Log Collector"
+      UserData:
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash -x
+
+            #CFN Functions
+            function cfn_fail
+            {
+              cfn-signal -e 1 --stack ${AWS::StackName} --region ${AWS::Region} --resource SaasLogCollectorInstacne
+              exit 1
+            }
+            function cfn_success
+            {
+              cfn-signal -e 0 --stack ${AWS::StackName} --region ${AWS::Region} --resource SaasLogCollectorInstacne
+              exit 0
+            }
+
+            S3URI=${QsS3Uri}
+
+            # Update OS
+            yum update -y
+            # Install EPEL Repository and git, jq, nfs-utils, policycoreutils python
+            yum install -y epel-release
+            yum install -y git jq nfs-utils policycoreutils-python
+            yum update --security -y 2>&1 | tee /var/log/userdata.yum_security_update.log
+            yum install -y python3 libselinux-python3
+            yum install -y gnupg2
+            yum install -y gettext
+
+            echo $PATH
+            PATH=/opt/aws/bin:$PATH
+            echo $PATH
+
+            # Create virtual env and activate
+            python3 -m venv ~/venv --system-site-packages
+            source ~/venv/bin/activate
+
+            pip install --upgrade pip
+            pip install wheel
+
+            # Install Cloudformation helper scripts
+            pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz 2>&1 | tee /var/log/userdata.aws_cfn_bootstrap_install.log
+
+            pip install awscli 2>&1 | tee /var/log/userdata.awscli_install.log
+
+            curl -sSL https://rvm.io/mpapis.asc | gpg2 --import -
+            curl -sSL https://rvm.io/pkuczynski.asc | gpg2 --import -
+            curl -sSL https://get.rvm.io | bash -s stable
+            source /etc/profile.d/rvm.sh
+            rvm install 2.7.5
+            gem install jfrog-saas-log-collector -v 0.1.5 --no-document
+            gem install fluentd --no-document
+            gem install fluent-plugin-splunk-hec --no-document
+            gem install fluent-plugin-jfrog-siem --no-document
+            gem install fluent-plugin-jfrog-metrics --no-document
+
+            mkdir /opt/jfrog/jfrog_saas_log_collector
+            aws s3 --region ${AWS::Region} sync s3://${QsS3BucketName}/${QsS3KeyPrefix}cloudInstallerScripts/ /opt/jfrog/jfrog_saas_log_collector/ || cfn_fail
+
+            # CentOS cloned virtual machines do not create a new machine id
+            # https://www.thegeekdiary.com/centos-rhel-7-how-to-change-the-machine-id/
+            rm -f /etc/machine-id
+            systemd-machine-id-setup
+
+            cfn-init -v --stack ${AWS::StackName} --resource SaasLogCollectorInstacne --configsets jfrog_saas_log_collector_install --region ${AWS::Region} || cfn_fail
+            # Setup CloudWatch Agent
+            curl https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py -O
+            chmod +x ./awslogs-agent-setup.py
+            ./awslogs-agent-setup.py -n -r ${AWS::Region} -c /root/cloudwatch.conf 2>&1 | tee /var/log/userdata.cloudwatch_agent_install.log
+
+            export JPD_URL=${JpdUrl}
+            export JPD_USER_NAME=${JpdUserName}
+            export JPD_ACCESS_TOKEN=$(aws secretsmanager get-secret-value --secret-id ${JpdAdminTokenSecretName} --region ${AWS::Region} | jq -r '.SecretString' | jq -r '.JpdAdminToken')
+            envsubst < /opt/jfrog/jfrog_saas_log_collector/config_base.yaml > /opt/jfrog/jfrog_saas_log_collector/config.yaml
+
+            #Splunk Config
+            export HEC_HOST=${SplunkHECHost}
+            export HEC_PORT=${SplunkHECPort}
+            export HEC_TOKEN=$(aws secretsmanager get-secret-value --secret-id ${SplunkHECTokenSecretName} --region ${AWS::Region} | jq -r '.SecretString' | jq -r '.SplunkHECToken')
+            export INSECURE_SSL=${SplunkHECSSLInsecure}
+            envsubst < /opt/jfrog/jfrog_saas_log_collector/fluentd_service_env_base.conf > /opt/jfrog/jfrog_saas_log_collector/fluentd_service_env.conf
+
+            chmod +x /opt/jfrog/jfrog_saas_log_collector/installSaasLogCollectorService.sh
+            chmod +x /opt/jfrog/jfrog_saas_log_collector/SaasLogCollectorStart.sh
+            chmod +x /opt/jfrog/jfrog_saas_log_collector/SaasLogCollectorFluentdStart.sh
+            sh /opt/jfrog/jfrog_saas_log_collector/installSaasLogCollectorService.sh
+
+            cfn_success &> /var/log/cfn_success.log
+            cfn_success || cfn_fail

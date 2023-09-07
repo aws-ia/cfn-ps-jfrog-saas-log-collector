@@ -1,0 +1,14 @@
+[Unit]
+Description=Jfrog saas log collector fluentd service
+After=network.target
+
+[Service]
+Restart=always
+RestartSec=60
+EnvironmentFile=/opt/jfrog/jfrog_saas_log_collector/fluentd_service_env.conf
+ExecStart=/bin/bash /opt/jfrog/jfrog_saas_log_collector/SaasLogCollectorFluentdStart.sh
+User=jfrog
+Group=jfrog
+
+[Install]
+WantedBy=multi-user.target

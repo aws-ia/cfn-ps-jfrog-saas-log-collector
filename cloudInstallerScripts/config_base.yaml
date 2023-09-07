@@ -1,0 +1,24 @@
+connection:
+  jpd_url: "$JPD_URL"
+  end_point_base: "artifactory"
+  username: "$JPD_USER_NAME"
+  access_token: "$JPD_ACCESS_TOKEN"
+  open_timeout_in_secs: 20
+  read_timeout_in_secs: 60
+log:
+  log_ship_config: "access/api/v1/logshipping/config"
+  solutions_enabled: ["artifactory", "xray"]
+  log_types_enabled: ["artifactory-request", "access-security-audit", "access-audit"]
+  uri_date_pattern: "%Y-%m-%d"
+  audit_repo: "artifactory/jfrog-logs-audit"
+  log_repo: "artifactory/jfrog-logs"
+  debug_mode: false
+  target_log_path: "/opt/jfrog/jfrog_saas_log_collector/"
+  print_with_utc: false
+  log_file_retention_days: 5
+process:
+  parallel_process: 2
+  parallel_downloads: 5
+  historical_log_days: 2
+  write_logs_by_type: false
+  minutes_between_runs: 180
