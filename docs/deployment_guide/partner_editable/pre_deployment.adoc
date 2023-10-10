@@ -1,3 +1,31 @@
 //Include any predeployment steps here, such as signing up for a Marketplace AMI or making any changes to a partner account. If there are no predeployment steps, leave this file empty.
 
 == Predeployment steps
+
+=== Add JFrog Platform admin token to AWS Secrets Manager
+. Open the Jfrog Platform and https://www.jfrog.com/confluence/display/JFROG/Access+Tokens[[generate an admin token^].
+. Open the https://console.aws.amazon.com/secretsmanager/home?region=us-east-1#!/home[AWS Secrets Manager console^].
+. In the top toolbar, choose the AWS Region where you deploy the Partner Solution.
+. Choose *Store a new secret*.
+. On the *Store a new secret* page, choose *Other type of secret*.
+. In the *Key/value pairs* section, create the JFrog admin token. In the first column, enter `JpdAdminToken`. In the second column, enter the token that was generated in step 1.
+
+:xrefstyle: short
+[#jpd_admin_token_secret]
+.Secrets Manager key-value admin token page
+[link=../{quickstart-project-name}/images/jpd_admin_token_secret.png]
+image::../docs/deployment_guide/images/jpd_admin_token_secret.png[image_placeholder,width=416,height=391]
+
+=== Add Splunk HEC token to AWS Secrets Manager
+. Open Splunk and generate an https://docs.splunk.com/Documentation/Splunk/9.0.0/Data/UsetheHTTPEventCollector[HTTP Event Collector token^].
+. Open the https://console.aws.amazon.com/secretsmanager/home?region=us-east-1#!/home[AWS Secrets Manager console^].
+. In the top toolbar, choose the AWS Region where you plan to deploy the Partner Solution.
+. Choose *Store a new secret*.
+. On the *Store a new secret* page, choose *Other type of secret*.
+. In the *Key/value pairs* section, create the Splunk HEC token. In the first column, enter `SplunkHECToken`. In the second column, enter the token that was generated in step 1.
+
+:xrefstyle: short
+[#splunk_hec_token_secret]
+.Secrets Manager key-value admin token page
+[link=../{quickstart-project-name}/images/splunk_hec_token_secret.png]
+image::../docs/deployment_guide/images/splunk_hec_token_secret.png[image_placeholder,width=416,height=391]

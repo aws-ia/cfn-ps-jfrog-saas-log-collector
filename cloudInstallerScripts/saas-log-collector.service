@@ -1,0 +1,13 @@
+[Unit]
+Description=Jfrog saas log collector service
+After=network.target
+
+[Service]
+Restart=always
+RestartSec=60
+ExecStart=/bin/bash /opt/jfrog/jfrog_saas_log_collector/SaasLogCollectorStart.sh
+User=jfrog
+Group=jfrog
+
+[Install]
+WantedBy=multi-user.target
